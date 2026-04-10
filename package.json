@@ -1,0 +1,26 @@
+{
+  "name": "onyxx-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@fastify/multipart": "^9.0.3",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.5.1",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "jose": "^6.2.2",
+    "pg": "^8.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
