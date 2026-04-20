@@ -4,6 +4,15 @@ import { createUploadSignature, uploadImageBuffer, uploadVideoStream } from "../
 import { config } from "../../config.js";
 import { getPool } from "../../db.js";
 
+function isLikelyHttpUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 async function readEditorialMultipart(request: any): Promise<{
   fields: Record<string, string>;
   image?: { buffer: Buffer; mimetype: string };
@@ -87,21 +96,33 @@ export async function registerAdminEditorialRoutes(
     const { fields, image, video } = await readEditorialMultipart(request);
     const title = String(fields.title ?? "").trim();
     const sort_order = Number(fields.sort_order ?? 0) || 0;
+    const image_url_body =
+      fields.image_url !== undefined ? String(fields.image_url).trim() : "";
+    const video_url_body =
+      fields.video_url !== undefined ? String(fields.video_url).trim() : "";
 
     if (!title) {
       return reply.status(400).send({ error: "title required" });
     }
-    if (!image?.buffer?.length && !video?.file) {
-      return reply.status(400).send({ error: "image or video file required" });
+    if (!image?.buffer?.length && !video?.file && !image_url_body && !video_url_body) {
+      return reply.status(400).send({
+        error: "image or video file required (or image_url/video_url)",
+      });
+    }
+    if (image_url_body && !isLikelyHttpUrl(image_url_body)) {
+      return reply.status(400).send({ error: "Invalid image_url" });
+    }
+    if (video_url_body && !isLikelyHttpUrl(video_url_body)) {
+      return reply.status(400).send({ error: "Invalid video_url" });
     }
 
     try {
       const image_url = image?.buffer?.length
         ? await uploadImageBuffer(image.buffer, image.mimetype, config.folders.editorial)
-        : null;
+        : image_url_body || null;
       const video_url = video?.file
         ? await uploadVideoStream(video.file, video.mimetype, config.folders.editorial)
-        : null;
+        : video_url_body || null;
       const pool = getPool();
       const { rows } = await pool.query(
         `INSERT INTO editorial (title, image_url, video_url, sort_order)
@@ -136,6 +157,10 @@ export async function registerAdminEditorialRoutes(
       fields.image_url !== undefined
         ? String(fields.image_url).trim()
         : undefined;
+    const video_url_body =
+      fields.video_url !== undefined
+        ? String(fields.video_url).trim()
+        : undefined;
     const clear_video =
       fields.clear_video !== undefined ? String(fields.clear_video).trim() : "";
 
@@ -156,6 +181,11 @@ export async function registerAdminEditorialRoutes(
     let video_url: string | null | undefined = undefined;
     if (clear_video === "1" || clear_video.toLowerCase() === "true") {
       video_url = null;
+    } else if (video_url_body !== undefined) {
+      if (video_url_body && !isLikelyHttpUrl(video_url_body)) {
+        return reply.status(400).send({ error: "Invalid video_url" });
+      }
+      video_url = video_url_body || null;
     } else if (video?.file) {
       try {
         video_url = await uploadVideoStream(
