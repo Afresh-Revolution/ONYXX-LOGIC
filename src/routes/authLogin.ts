@@ -7,7 +7,7 @@ import { getPool } from "../db.js";
 export async function registerAuthRoutes(fastify: FastifyInstance) {
   fastify.post<{
     Body: { email?: string; password?: string };
-  }>("/login", async (request, reply) => {
+  }>("/login", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     try {
       assertDb();
       assertJwtSecret();
@@ -48,6 +48,8 @@ export async function registerAuthRoutes(fastify: FastifyInstance) {
         role: "admin",
       })
         .setProtectedHeader({ alg: "HS256" })
+        .setIssuer("onyxx-backend")
+        .setAudience("onyxx-admin")
         .setExpirationTime("8h")
         .sign(new TextEncoder().encode(config.jwtSecret));
 

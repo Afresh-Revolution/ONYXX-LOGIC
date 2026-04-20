@@ -4,34 +4,68 @@ import { config } from "../config.js";
 import { getPool } from "../db.js";
 import { filesNamed, readMultipart } from "../lib/multipart.js";
 
+function isValidEmail(email: string): boolean {
+  // Simple, pragmatic validation; avoids rejecting common real addresses.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isLikelyHttpUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function registerApplicationsPublicRoutes(
   fastify: FastifyInstance
 ) {
-  fastify.post("/", async (request, reply) => {
+  fastify.post(
+    "/",
+    { config: { rateLimit: { max: 20, timeWindow: "1 hour" } } },
+    async (request, reply) => {
     const { fields, files } = await readMultipart(request);
 
     const full_name = String(fields.full_name ?? "").trim();
-    const email = String(fields.email ?? "").trim();
+    const email = String(fields.email ?? "").trim().toLowerCase();
     const date_of_birth = String(fields.date_of_birth ?? "").trim();
     const phone = String(fields.phone ?? "").trim() || null;
     const height = String(fields.height ?? "").trim() || null;
     const city = String(fields.city ?? "").trim() || null;
     const experience_level = String(fields.experience_level ?? "").trim() || null;
-    const portfolio_url = String(fields.portfolio_url ?? "").trim() || null;
-    const message = String(fields.message ?? "").trim() || null;
+    const portfolio_url_raw = String(fields.portfolio_url ?? "").trim();
+    const portfolio_url = portfolio_url_raw ? portfolio_url_raw : null;
+    const message_raw = String(fields.message ?? "").trim();
+    const message = message_raw ? message_raw : null;
 
     if (!full_name || !email || !date_of_birth) {
       return reply.status(400).send({
         error: "Missing required fields: full_name, email, date_of_birth",
       });
     }
+    if (!isValidEmail(email)) {
+      return reply.status(400).send({ error: "Invalid email" });
+    }
+    if (portfolio_url && !isLikelyHttpUrl(portfolio_url)) {
+      return reply.status(400).send({ error: "Invalid portfolio_url" });
+    }
+    if (message && message.length > 4000) {
+      return reply.status(400).send({ error: "message too long" });
+    }
 
     const photoParts = filesNamed(files, "photos");
+    if (photoParts.length > 10) {
+      return reply.status(400).send({ error: "Too many photos" });
+    }
     const photoUrls: string[] = [];
 
     try {
       for (const file of photoParts) {
         if (!file.buffer?.length) continue;
+        if (!file.mimetype?.toLowerCase().startsWith("image/")) {
+          return reply.status(400).send({ error: "Invalid photo type" });
+        }
         const url = await uploadImageBuffer(
           file.buffer,
           file.mimetype,
@@ -42,7 +76,7 @@ export async function registerApplicationsPublicRoutes(
     } catch (e) {
       console.error(e);
       return reply.status(502).send({
-        error: "Image upload failed. Check Cloudinary configuration.",
+        error: "Image upload failed",
       });
     }
 
@@ -70,10 +104,10 @@ export async function registerApplicationsPublicRoutes(
       console.error(e);
       return reply.status(500).send({
         error: "Could not save application",
-        detail: e instanceof Error ? e.message : String(e),
       });
     }
 
     return reply.send({ ok: true, photo_count: photoUrls.length });
-  });
+    }
+  );
 }

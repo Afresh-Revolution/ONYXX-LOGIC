@@ -18,7 +18,6 @@ export async function registerAdminApplicationsRoutes(
       console.error(e);
       return reply.status(500).send({
         error: "Failed to list applications",
-        detail: e instanceof Error ? e.message : String(e),
       });
     }
   });
@@ -26,7 +25,10 @@ export async function registerAdminApplicationsRoutes(
   fastify.patch<{
     Params: { id: string };
     Body: { status?: string };
-  }>("/:id/status", async (request, reply) => {
+  }>(
+    "/:id/status",
+    { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
+    async (request, reply) => {
     const { id } = request.params;
     const status = String(request.body?.status ?? "").trim();
     if (!status) {
@@ -44,5 +46,6 @@ export async function registerAdminApplicationsRoutes(
       console.error(e);
       return reply.status(500).send({ error: "Update failed" });
     }
-  });
+    }
+  );
 }

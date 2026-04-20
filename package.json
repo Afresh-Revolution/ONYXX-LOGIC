@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",
+    "@fastify/helmet": "^13.0.1",
     "@fastify/multipart": "^9.0.3",
+    "@fastify/rate-limit": "^10.2.2",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.5.1",
     "dotenv": "^16.4.7",

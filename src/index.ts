@@ -1,5 +1,7 @@
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
+import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
 import { config } from "./config.js";
 import { registerApplicationsPublicRoutes } from "./routes/applicationsPublic.js";
@@ -9,12 +11,24 @@ import { registerAuthRoutes } from "./routes/authLogin.js";
 async function main() {
   const fastify = Fastify({
     logger: true,
+    trustProxy: true,
+  });
+
+  await fastify.register(helmet, {
+    // Keep defaults; avoid breaking local dev with strict CSP unless needed.
+    contentSecurityPolicy: false,
   });
 
   await fastify.register(cors, {
     origin: config.corsOrigins,
     credentials: true,
     maxAge: 86400,
+  });
+
+  await fastify.register(rateLimit, {
+    global: false,
+    // Helps protect against header spoofing; relies on `trustProxy: true`.
+    enableDraftSpec: true,
   });
 
   await fastify.register(multipart, {

@@ -22,7 +22,12 @@ export async function adminPreHandler(
   try {
     const { payload } = await jwtVerify(
       bearer,
-      new TextEncoder().encode(config.jwtSecret)
+      new TextEncoder().encode(config.jwtSecret),
+      {
+        algorithms: ["HS256"],
+        issuer: "onyxx-backend",
+        audience: "onyxx-admin",
+      }
     );
     if (payload.role !== "admin") {
       await reply.status(403).send({ error: "Forbidden" });

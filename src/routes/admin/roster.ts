@@ -20,7 +20,10 @@ export async function registerAdminRosterRoutes(fastify: FastifyInstance) {
     }
   });
 
-  fastify.post("/", async (request, reply) => {
+  fastify.post(
+    "/",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (request, reply) => {
     const { fields, files } = await readMultipart(request);
     const name = String(fields.name ?? "").trim();
     const category = String(fields.category ?? "").trim();
@@ -52,14 +55,17 @@ export async function registerAdminRosterRoutes(fastify: FastifyInstance) {
       console.error(e);
       return reply.status(500).send({
         error: "Failed to create roster entry",
-        detail: e instanceof Error ? e.message : String(e),
       });
     }
-  });
+    }
+  );
 
   fastify.patch<{
     Params: { id: string };
-  }>("/:id", async (request, reply) => {
+  }>(
+    "/:id",
+    { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
+    async (request, reply) => {
     const { id } = request.params;
     const { fields, files } = await readMultipart(request);
 
@@ -132,11 +138,15 @@ export async function registerAdminRosterRoutes(fastify: FastifyInstance) {
       console.error(e);
       return reply.status(500).send({ error: "Update failed" });
     }
-  });
+    }
+  );
 
   fastify.delete<{
     Params: { id: string };
-  }>("/:id", async (request, reply) => {
+  }>(
+    "/:id",
+    { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
+    async (request, reply) => {
     const { id } = request.params;
     try {
       const pool = getPool();
@@ -150,5 +160,6 @@ export async function registerAdminRosterRoutes(fastify: FastifyInstance) {
       console.error(e);
       return reply.status(500).send({ error: "Delete failed" });
     }
-  });
+    }
+  );
 }
