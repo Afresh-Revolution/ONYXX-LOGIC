@@ -38,7 +38,8 @@ create table if not exists public.roster (
 create table if not exists public.editorial (
   id uuid primary key default gen_random_uuid(),
   title text not null,
-  image_url text not null,
+  -- Allow video-only rows (direct-to-Cloudinary uploads).
+  image_url text,
   video_url text,
   sort_order int not null default 0,
   created_at timestamptz default now(),
@@ -48,6 +49,20 @@ create table if not exists public.editorial (
 -- Existing deployments: add column if the table was created before video support.
 alter table public.editorial
   add column if not exists video_url text;
+
+-- Existing deployments: allow video-only items by dropping NOT NULL.
+alter table public.editorial
+  alter column image_url drop not null;
+
+-- Enforce: at least one media URL must be present.
+alter table public.editorial
+  drop constraint if exists editorial_media_required;
+alter table public.editorial
+  add constraint editorial_media_required
+  check (
+    nullif(trim(coalesce(image_url, '')), '') is not null
+    or nullif(trim(coalesce(video_url, '')), '') is not null
+  );
 
 create table if not exists public.applications (
   id uuid primary key default gen_random_uuid(),
