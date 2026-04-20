@@ -23,6 +23,26 @@ function ensureConfigured() {
   cloudinary.config({ cloud_name: cloudName, api_key: apiKey, api_secret: apiSecret });
 }
 
+export function createUploadSignature(params: Record<string, string | number>): {
+  timestamp: number;
+  signature: string;
+  apiKey: string;
+  cloudName: string;
+} {
+  ensureConfigured();
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = cloudinary.utils.api_sign_request(
+    { ...params, timestamp },
+    config.cloudinary.apiSecret
+  );
+  return {
+    timestamp,
+    signature,
+    apiKey: config.cloudinary.apiKey,
+    cloudName: config.cloudinary.cloudName,
+  };
+}
+
 export async function uploadImageBuffer(
   buffer: Buffer,
   mime: string,

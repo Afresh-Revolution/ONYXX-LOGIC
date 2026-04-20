@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { MultipartFile } from "@fastify/multipart";
-import { uploadImageBuffer, uploadVideoStream } from "../../cloudinary.js";
+import { createUploadSignature, uploadImageBuffer, uploadVideoStream } from "../../cloudinary.js";
 import { config } from "../../config.js";
 import { getPool } from "../../db.js";
 
@@ -34,6 +34,37 @@ async function readEditorialMultipart(request: any): Promise<{
 export async function registerAdminEditorialRoutes(
   fastify: FastifyInstance
 ) {
+  // Direct-to-Cloudinary upload support to avoid proxy timeouts (e.g. Cloudflare 524)
+  // for large videos. Client uploads to Cloudinary using this signature, then calls
+  // POST/PATCH with the resulting `video_url`.
+  fastify.get(
+    "/upload-signature",
+    { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const resource_type = String((request.query as any)?.resource_type ?? "video").trim();
+      if (resource_type !== "video" && resource_type !== "image") {
+        return reply.status(400).send({ error: "Invalid resource_type" });
+      }
+
+      const folder =
+        resource_type === "video" ? config.folders.editorial : config.folders.editorial;
+
+      const { timestamp, signature, apiKey, cloudName } = createUploadSignature({
+        folder,
+        resource_type,
+      });
+
+      return reply.send({
+        cloudName,
+        apiKey,
+        timestamp,
+        signature,
+        folder,
+        resource_type,
+      });
+    }
+  );
+
   fastify.get("/", async (_request, reply) => {
     try {
       const pool = getPool();
