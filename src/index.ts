@@ -8,6 +8,7 @@ import { registerApplicationsPublicRoutes } from "./routes/applicationsPublic.js
 import { registerAdminRoutes } from "./routes/admin/index.js";
 import { registerAuthRoutes } from "./routes/authLogin.js";
 
+
 async function main() {
   const fastify = Fastify({
     logger: true,
