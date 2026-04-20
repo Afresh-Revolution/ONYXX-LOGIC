@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import { config } from "./config.js";
+import type { Readable } from "node:stream";
 
 const ALLOWED_IMAGE_MIMES = new Set([
   "image/jpeg",
@@ -62,4 +63,36 @@ export async function uploadVideoBuffer(
     allowed_formats: ["mp4", "mov", "webm"],
   });
   return res.secure_url;
+}
+
+export async function uploadVideoStream(
+  stream: Readable,
+  mime: string,
+  folder: string
+): Promise<string> {
+  ensureConfigured();
+  const normalizedMime = (mime || "video/mp4").toLowerCase();
+  if (!ALLOWED_VIDEO_MIMES.has(normalizedMime)) {
+    throw new Error(`Unsupported video type: ${normalizedMime}`);
+  }
+
+  return await new Promise<string>((resolve, reject) => {
+    const upload = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "video",
+        unique_filename: true,
+        overwrite: false,
+        allowed_formats: ["mp4", "mov", "webm"],
+      },
+      (err, res) => {
+        if (err) return reject(err);
+        if (!res?.secure_url) return reject(new Error("Cloudinary upload failed"));
+        resolve(res.secure_url);
+      }
+    );
+
+    stream.on("error", reject);
+    stream.pipe(upload);
+  });
 }

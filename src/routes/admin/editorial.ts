@@ -1,8 +1,35 @@
 import type { FastifyInstance } from "fastify";
-import { uploadImageBuffer, uploadVideoBuffer } from "../../cloudinary.js";
+import type { MultipartFile } from "@fastify/multipart";
+import { uploadImageBuffer, uploadVideoStream } from "../../cloudinary.js";
 import { config } from "../../config.js";
 import { getPool } from "../../db.js";
-import { firstFileNamed, readMultipart } from "../../lib/multipart.js";
+
+async function readEditorialMultipart(request: any): Promise<{
+  fields: Record<string, string>;
+  image?: { buffer: Buffer; mimetype: string };
+  video?: { file: MultipartFile["file"]; mimetype: string };
+}> {
+  const fields: Record<string, string> = {};
+  let image: { buffer: Buffer; mimetype: string } | undefined;
+  let video: { file: MultipartFile["file"]; mimetype: string } | undefined;
+
+  for await (const part of request.parts()) {
+    if (part.type === "file") {
+      if (part.fieldname === "image") {
+        const buf = await part.toBuffer();
+        if (buf?.length) {
+          image = { buffer: buf, mimetype: part.mimetype || "application/octet-stream" };
+        }
+      } else if (part.fieldname === "video") {
+        video = { file: part.file, mimetype: part.mimetype || "application/octet-stream" };
+      }
+    } else {
+      fields[part.fieldname] = String(part.value ?? "");
+    }
+  }
+
+  return { fields, image, video };
+}
 
 export async function registerAdminEditorialRoutes(
   fastify: FastifyInstance
@@ -26,28 +53,24 @@ export async function registerAdminEditorialRoutes(
     "/",
     { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (request, reply) => {
-    const { fields, files } = await readMultipart(request);
+    const { fields, image, video } = await readEditorialMultipart(request);
     const title = String(fields.title ?? "").trim();
     const sort_order = Number(fields.sort_order ?? 0) || 0;
-    const imgFile = firstFileNamed(files, "image");
-    const videoFile = firstFileNamed(files, "video");
 
     if (!title) {
       return reply.status(400).send({ error: "title required" });
     }
-    if (!imgFile?.buffer?.length && !videoFile?.buffer?.length) {
+    if (!image?.buffer?.length && !video?.file) {
       return reply.status(400).send({ error: "image or video file required" });
     }
 
     try {
-      const [image_url, video_url] = await Promise.all([
-        imgFile?.buffer?.length
-          ? uploadImageBuffer(imgFile.buffer, imgFile.mimetype, config.folders.editorial)
-          : Promise.resolve(null),
-        videoFile?.buffer?.length
-          ? uploadVideoBuffer(videoFile.buffer, videoFile.mimetype, config.folders.editorial)
-          : Promise.resolve(null),
-      ]);
+      const image_url = image?.buffer?.length
+        ? await uploadImageBuffer(image.buffer, image.mimetype, config.folders.editorial)
+        : null;
+      const video_url = video?.file
+        ? await uploadVideoStream(video.file, video.mimetype, config.folders.editorial)
+        : null;
       const pool = getPool();
       const { rows } = await pool.query(
         `INSERT INTO editorial (title, image_url, video_url, sort_order)
@@ -72,7 +95,7 @@ export async function registerAdminEditorialRoutes(
     { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
     async (request, reply) => {
     const { id } = request.params;
-    const { fields, files } = await readMultipart(request);
+    const { fields, image, video } = await readEditorialMultipart(request);
 
     const title =
       fields.title !== undefined ? String(fields.title).trim() : undefined;
@@ -85,15 +108,12 @@ export async function registerAdminEditorialRoutes(
     const clear_video =
       fields.clear_video !== undefined ? String(fields.clear_video).trim() : "";
 
-    const imgFile = firstFileNamed(files, "image");
-    const videoFile = firstFileNamed(files, "video");
-
     let image_url: string | undefined = image_url_body;
-    if (imgFile?.buffer?.length) {
+    if (image?.buffer?.length) {
       try {
         image_url = await uploadImageBuffer(
-          imgFile.buffer,
-          imgFile.mimetype,
+          image.buffer,
+          image.mimetype,
           config.folders.editorial
         );
       } catch (e) {
@@ -105,11 +125,11 @@ export async function registerAdminEditorialRoutes(
     let video_url: string | null | undefined = undefined;
     if (clear_video === "1" || clear_video.toLowerCase() === "true") {
       video_url = null;
-    } else if (videoFile?.buffer?.length) {
+    } else if (video?.file) {
       try {
-        video_url = await uploadVideoBuffer(
-          videoFile.buffer,
-          videoFile.mimetype,
+        video_url = await uploadVideoStream(
+          video.file,
+          video.mimetype,
           config.folders.editorial
         );
       } catch (e) {

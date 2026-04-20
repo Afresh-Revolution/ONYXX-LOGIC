@@ -34,7 +34,8 @@ async function main() {
 
   await fastify.register(multipart, {
     limits: {
-      fileSize: 15 * 1024 * 1024,
+      // Allow up to 500MB per file (videos); images stay small in practice.
+      fileSize: 500 * 1024 * 1024,
       files: 10,
     },
   });
