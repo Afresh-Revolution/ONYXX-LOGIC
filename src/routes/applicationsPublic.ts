@@ -97,7 +97,7 @@ export async function registerApplicationsPublicRoutes(
           experience_level,
           portfolio_url,
           message,
-          photoUrls.length ? JSON.stringify(photoUrls) : null,
+          JSON.stringify(photoUrls.length ? photoUrls : []),
         ]
       );
     } catch (e) {

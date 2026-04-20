@@ -24,6 +24,9 @@ export const config = {
     roster: `${process.env.CLOUDINARY_UPLOAD_FOLDER ?? "onyxx"}/roster`,
     editorial: `${process.env.CLOUDINARY_UPLOAD_FOLDER ?? "onyxx"}/editorial`,
   },
+  resendApiKey: process.env.RESEND_API_KEY?.trim() ?? "",
+  resendFrom:
+    process.env.RESEND_FROM?.trim() ?? "ONYXX <noreply@onyxx.club>",
 };
 
 export function assertDb() {

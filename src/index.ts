@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { registerApplicationsPublicRoutes } from "./routes/applicationsPublic.js";
 import { registerAdminRoutes } from "./routes/admin/index.js";
 import { registerAuthRoutes } from "./routes/authLogin.js";
+import { registerPublicSiteRoutes } from "./routes/publicSite.js";
 
 
 async function main() {
@@ -47,6 +48,8 @@ async function main() {
   await fastify.register(registerApplicationsPublicRoutes, {
     prefix: "/api/applications",
   });
+
+  await fastify.register(registerPublicSiteRoutes, { prefix: "/api" });
 
   await fastify.register(registerAdminRoutes, { prefix: "/api/admin" });
 
