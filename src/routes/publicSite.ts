@@ -42,4 +42,27 @@ export async function registerPublicSiteRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  fastify.get(
+    "/metrics",
+    { config: { rateLimit: { max: 300, timeWindow: "1 minute" } } },
+    async (_request, reply) => {
+      try {
+        const pool = getPool();
+        const { rows } = await pool.query(
+          `SELECT id, total_earnings_display, brand_partnerships, countries_placements,
+                  models_represented, campaigns_delivered, years_excellence, placement_rate_percent,
+                  category_distribution, placement_by_year, updated_at
+           FROM site_metrics WHERE id = 1`
+        );
+        if (!rows.length) {
+          return reply.status(503).send({ error: "Metrics not configured" });
+        }
+        return reply.send({ metrics: rows[0] });
+      } catch (e) {
+        console.error(e);
+        return reply.status(500).send({ error: "Could not load metrics" });
+      }
+    }
+  );
 }

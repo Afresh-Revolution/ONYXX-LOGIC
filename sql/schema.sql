@@ -115,6 +115,41 @@ CREATE INDEX IF NOT EXISTS applications_status_idx ON public.applications (statu
 CREATE INDEX IF NOT EXISTS applications_email_idx ON public.applications (email);
 
 -- ---------------------------------------------------------------------------
+-- Homepage performance metrics + chart data (singleton row id = 1)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.site_metrics (
+  id smallint PRIMARY KEY CHECK (id = 1),
+  total_earnings_display text NOT NULL DEFAULT '$4.2M',
+  brand_partnerships integer NOT NULL DEFAULT 87,
+  countries_placements integer NOT NULL DEFAULT 32,
+  models_represented integer NOT NULL DEFAULT 250,
+  campaigns_delivered integer NOT NULL DEFAULT 1200,
+  years_excellence integer NOT NULL DEFAULT 12,
+  placement_rate_percent integer NOT NULL DEFAULT 94 CHECK (placement_rate_percent >= 0 AND placement_rate_percent <= 100),
+  category_distribution jsonb NOT NULL DEFAULT '[
+    {"label":"Editorial","value":35},
+    {"label":"Commercial","value":25},
+    {"label":"Runway","value":20},
+    {"label":"Plus Size","value":12},
+    {"label":"Fitness","value":8}
+  ]'::jsonb,
+  placement_by_year jsonb NOT NULL DEFAULT '[
+    {"year":2019,"rate":72},
+    {"year":2020,"rate":65},
+    {"year":2021,"rate":78},
+    {"year":2022,"rate":85},
+    {"year":2023,"rate":91},
+    {"year":2024,"rate":94},
+    {"year":2025,"rate":95},
+    {"year":2026,"rate":96}
+  ]'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO public.site_metrics (id) VALUES (1)
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
 -- Row level security (Supabase: anon uses policies; direct Postgres role may bypass)
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.roster ENABLE ROW LEVEL SECURITY;
@@ -126,6 +161,11 @@ CREATE POLICY "roster_select_public" ON public.roster FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "editorial_select_public" ON public.editorial;
 CREATE POLICY "editorial_select_public" ON public.editorial FOR SELECT USING (true);
+
+ALTER TABLE public.site_metrics ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "site_metrics_select_public" ON public.site_metrics;
+CREATE POLICY "site_metrics_select_public" ON public.site_metrics FOR SELECT USING (true);
 
 -- ---------------------------------------------------------------------------
 -- Indexes (sort order)
@@ -161,5 +201,11 @@ CREATE TRIGGER editorial_set_updated_at
 DROP TRIGGER IF EXISTS applications_set_updated_at ON public.applications;
 CREATE TRIGGER applications_set_updated_at
   BEFORE UPDATE ON public.applications
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.set_updated_at();
+
+DROP TRIGGER IF EXISTS site_metrics_set_updated_at ON public.site_metrics;
+CREATE TRIGGER site_metrics_set_updated_at
+  BEFORE UPDATE ON public.site_metrics
   FOR EACH ROW
   EXECUTE PROCEDURE public.set_updated_at();
