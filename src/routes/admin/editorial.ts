@@ -60,10 +60,10 @@ export async function registerAdminEditorialRoutes(
       const folder =
         resource_type === "video" ? config.folders.editorial : config.folders.editorial;
 
+      // Signature must cover only params that the browser will actually send
+      // with the Cloudinary upload request body (plus timestamp).
       const { timestamp, signature, apiKey, cloudName } = createUploadSignature({
         folder,
-        resource_type,
-        ...(resource_type === "video" ? { max_file_size: MAX_VIDEO_SIZE_BYTES } : {}),
       });
 
       return reply.send({
