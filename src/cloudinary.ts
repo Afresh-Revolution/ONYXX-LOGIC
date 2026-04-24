@@ -15,6 +15,8 @@ const ALLOWED_VIDEO_MIMES = new Set([
   "video/webm",
 ]);
 
+const CLOUDINARY_VIDEO_CHUNK_SIZE_BYTES = 20 * 1024 * 1024;
+
 function ensureConfigured() {
   const { cloudName, apiKey, apiSecret } = config.cloudinary;
   if (!cloudName || !apiKey || !apiSecret) {
@@ -97,20 +99,34 @@ export async function uploadVideoStream(
   }
 
   return await new Promise<string>((resolve, reject) => {
-    const upload = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: "video",
-        unique_filename: true,
-        overwrite: false,
-        allowed_formats: ["mp4", "mov", "webm"],
-      },
-      (err, res) => {
-        if (err) return reject(err);
-        if (!res?.secure_url) return reject(new Error("Cloudinary upload failed"));
-        resolve(res.secure_url);
-      }
-    );
+    const options = {
+      folder,
+      resource_type: "video" as const,
+      unique_filename: true,
+      overwrite: false,
+      allowed_formats: ["mp4", "mov", "webm"],
+    };
+    const onUploadDone = (err: unknown, res: { secure_url?: string } | undefined) => {
+      if (err) return reject(err);
+      if (!res?.secure_url) return reject(new Error("Cloudinary upload failed"));
+      resolve(res.secure_url);
+    };
+    const uploader = cloudinary.uploader as typeof cloudinary.uploader & {
+      upload_chunked_stream?: (
+        opts: Record<string, unknown>,
+        callback: (err: unknown, res: { secure_url?: string } | undefined) => void
+      ) => NodeJS.WritableStream;
+    };
+    const upload =
+      typeof uploader.upload_chunked_stream === "function"
+        ? uploader.upload_chunked_stream(
+            {
+              ...options,
+              chunk_size: CLOUDINARY_VIDEO_CHUNK_SIZE_BYTES,
+            },
+            onUploadDone
+          )
+        : cloudinary.uploader.upload_stream(options, onUploadDone);
 
     stream.on("error", reject);
     stream.pipe(upload);

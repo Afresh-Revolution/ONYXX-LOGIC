@@ -4,6 +4,8 @@ import { createUploadSignature, uploadImageBuffer, uploadVideoStream } from "../
 import { config } from "../../config.js";
 import { getPool } from "../../db.js";
 
+const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024;
+
 function isLikelyHttpUrl(url: string): boolean {
   try {
     const u = new URL(url);
@@ -61,6 +63,7 @@ export async function registerAdminEditorialRoutes(
       const { timestamp, signature, apiKey, cloudName } = createUploadSignature({
         folder,
         resource_type,
+        ...(resource_type === "video" ? { max_file_size: MAX_VIDEO_SIZE_BYTES } : {}),
       });
 
       return reply.send({
@@ -70,6 +73,7 @@ export async function registerAdminEditorialRoutes(
         signature,
         folder,
         resource_type,
+        max_file_size: resource_type === "video" ? MAX_VIDEO_SIZE_BYTES : undefined,
       });
     }
   );
