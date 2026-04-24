@@ -53,12 +53,31 @@ export async function registerAdminEditorialRoutes(
     { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const resource_type = String((request.query as any)?.resource_type ?? "video").trim();
+      const unsignedFlag = String((request.query as any)?.unsigned ?? "").trim().toLowerCase();
+      const wantsUnsigned = unsignedFlag === "1" || unsignedFlag === "true";
       if (resource_type !== "video" && resource_type !== "image") {
         return reply.status(400).send({ error: "Invalid resource_type" });
       }
 
       const folder =
         resource_type === "video" ? config.folders.editorial : config.folders.editorial;
+
+      if (wantsUnsigned) {
+        if (!config.cloudinary.unsignedUploadPreset) {
+          return reply.status(500).send({
+            error:
+              "Unsigned Cloudinary upload preset is not configured (CLOUDINARY_UNSIGNED_UPLOAD_PRESET)",
+          });
+        }
+        return reply.send({
+          cloudName: config.cloudinary.cloudName,
+          apiKey: config.cloudinary.apiKey,
+          folder,
+          resource_type,
+          upload_preset: config.cloudinary.unsignedUploadPreset,
+          max_file_size: resource_type === "video" ? MAX_VIDEO_SIZE_BYTES : undefined,
+        });
+      }
 
       const { timestamp, signature, apiKey, cloudName } = createUploadSignature({
         folder,
