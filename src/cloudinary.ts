@@ -2,19 +2,6 @@ import { v2 as cloudinary } from "cloudinary";
 import { config } from "./config.js";
 import type { Readable } from "node:stream";
 
-const ALLOWED_IMAGE_MIMES = new Set([
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-]);
-
-const ALLOWED_VIDEO_MIMES = new Set([
-  "video/mp4",
-  "video/quicktime",
-  "video/webm",
-]);
-
 const CLOUDINARY_VIDEO_CHUNK_SIZE_BYTES = 20 * 1024 * 1024;
 
 function ensureConfigured() {
@@ -52,7 +39,7 @@ export async function uploadImageBuffer(
 ): Promise<string> {
   ensureConfigured();
   const normalizedMime = (mime || "image/jpeg").toLowerCase();
-  if (!ALLOWED_IMAGE_MIMES.has(normalizedMime)) {
+  if (!normalizedMime.startsWith("image/")) {
     throw new Error(`Unsupported image type: ${normalizedMime}`);
   }
   const dataUri = `data:${normalizedMime};base64,${buffer.toString("base64")}`;
@@ -61,7 +48,6 @@ export async function uploadImageBuffer(
     resource_type: "image",
     unique_filename: true,
     overwrite: false,
-    allowed_formats: ["jpg", "jpeg", "png", "webp"],
   });
   return res.secure_url;
 }
@@ -73,7 +59,7 @@ export async function uploadVideoBuffer(
 ): Promise<string> {
   ensureConfigured();
   const normalizedMime = (mime || "video/mp4").toLowerCase();
-  if (!ALLOWED_VIDEO_MIMES.has(normalizedMime)) {
+  if (!normalizedMime.startsWith("video/")) {
     throw new Error(`Unsupported video type: ${normalizedMime}`);
   }
   const dataUri = `data:${normalizedMime};base64,${buffer.toString("base64")}`;
@@ -82,7 +68,6 @@ export async function uploadVideoBuffer(
     resource_type: "video",
     unique_filename: true,
     overwrite: false,
-    allowed_formats: ["mp4", "mov", "webm"],
   });
   return res.secure_url;
 }
@@ -94,7 +79,7 @@ export async function uploadVideoStream(
 ): Promise<string> {
   ensureConfigured();
   const normalizedMime = (mime || "video/mp4").toLowerCase();
-  if (!ALLOWED_VIDEO_MIMES.has(normalizedMime)) {
+  if (!normalizedMime.startsWith("video/")) {
     throw new Error(`Unsupported video type: ${normalizedMime}`);
   }
 
@@ -104,7 +89,6 @@ export async function uploadVideoStream(
       resource_type: "video" as const,
       unique_filename: true,
       overwrite: false,
-      allowed_formats: ["mp4", "mov", "webm"],
     };
     const onUploadDone = (err: unknown, res: { secure_url?: string } | undefined) => {
       if (err) return reject(err);
