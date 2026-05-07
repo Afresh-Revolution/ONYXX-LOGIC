@@ -1,8 +1,20 @@
 import "dotenv/config";
 
+// Always allowed (dev + production site). Any extra origins from the
+// CORS_ORIGINS env var are merged on top of these so a misconfigured deploy
+// can never block the live site from POSTing to /api/applications.
+const ALWAYS_ALLOWED_ORIGINS = [
+  "http://localhost:3000",
+  "https://onyxx.club",
+  "https://www.onyxx.club",
+];
+
 function parseOrigins(raw: string | undefined): string[] {
-  if (!raw?.trim()) return ["http://localhost:3000"];
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const fromEnv = (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return Array.from(new Set([...ALWAYS_ALLOWED_ORIGINS, ...fromEnv]));
 }
 
 /** Same secret the Next app uses for cookie JWT verification (JWT_SECRET or ADMIN_SESSION_SECRET). */

@@ -21,8 +21,15 @@ async function main() {
     contentSecurityPolicy: false,
   });
 
+  const allowedOrigins = new Set(config.corsOrigins);
   await fastify.register(cors, {
-    origin: config.corsOrigins,
+    origin(origin, cb) {
+      // Allow same-origin / curl / server-to-server (no Origin header).
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.has(origin)) return cb(null, true);
+      fastify.log.warn({ origin }, "CORS: rejecting origin");
+      cb(null, false);
+    },
     credentials: true,
     maxAge: 86400,
   });

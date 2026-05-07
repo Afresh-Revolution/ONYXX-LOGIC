@@ -186,6 +186,31 @@ export async function registerAdminApplicationsRoutes(
     }
   );
 
+  fastify.delete<{ Params: { id: string } }>(
+    "/:id",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const { id } = request.params;
+      if (!id) {
+        return reply.status(400).send({ error: "id required" });
+      }
+      try {
+        const pool = getPool();
+        const { rowCount } = await pool.query(
+          `DELETE FROM applications WHERE id = $1::uuid`,
+          [id]
+        );
+        if (!rowCount) {
+          return reply.status(404).send({ error: "Not found" });
+        }
+        return reply.send({ ok: true });
+      } catch (e) {
+        console.error(e);
+        return reply.status(500).send({ error: "Delete failed" });
+      }
+    }
+  );
+
   fastify.patch<{
     Params: { id: string };
     Body: { interview_at?: string };
